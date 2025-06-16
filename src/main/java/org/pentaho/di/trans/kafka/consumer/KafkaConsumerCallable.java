@@ -1,9 +1,10 @@
 package org.pentaho.di.trans.kafka.consumer;
 
-import kafka.consumer.ConsumerTimeoutException;
-import kafka.message.MessageAndMetadata;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.pentaho.di.core.exception.KettleException;
 
+import java.time.Duration;
 import java.util.concurrent.Callable;
 
 /**
@@ -42,21 +43,29 @@ public abstract class KafkaConsumerCallable implements Callable<Object> {
             } else {
                 step.logDebug("Collecting unlimited messages");
             }
-            while (data.streamIterator.hasNext() && !data.canceled && (limit <= 0 || data.processed < limit)) {
-                MessageAndMetadata<byte[], byte[]> messageAndMetadata = data.streamIterator.next();
-                messageReceived(messageAndMetadata.key(), messageAndMetadata.message());
-                ++data.processed;
+            while (!data.canceled && (limit <= 0 || data.processed < limit)) {
+                ConsumerRecords<byte[], byte[]> records = data.consumer.poll(Duration.ofMillis(1000));
+                if (records.isEmpty()) {
+                    step.logDebug("Received an empty poll after " + data.processed + " messages");
+                    if (meta.isStopOnEmptyTopic()) {
+                        break;
+                    } else {
+                        continue;
+                    }
+                }
+                for (ConsumerRecord<byte[], byte[]> record : records) {
+                    messageReceived(record.key(), record.value());
+                    ++data.processed;
+                    if (limit > 0 && data.processed >= limit) {
+                        break;
+                    }
+                }
             }
-        } catch (ConsumerTimeoutException cte) {
-            step.logDebug("Received a consumer timeout after " + data.processed + " messages");
-            if (!meta.isStopOnEmptyTopic()) {
-                // Because we're not set to stop on empty, this is an abnormal
-                // timeout
-                throw new KettleException("Unexpected consumer timeout!", cte);
-            }
+        } catch (Exception e) {
+            throw new KettleException(e);
         }
         // Notify that all messages were read successfully
-        data.consumer.commitOffsets();
+        data.consumer.commitSync();
         step.setOutputDone();
         return null;
     }
