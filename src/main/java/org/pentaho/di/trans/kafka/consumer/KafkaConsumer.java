@@ -1,8 +1,8 @@
 package org.pentaho.di.trans.kafka.consumer;
 
-import kafka.consumer.Consumer;
-import kafka.consumer.ConsumerConfig;
-import kafka.consumer.KafkaStream;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.pentaho.di.core.exception.KettleException;
 import org.pentaho.di.core.row.RowDataUtil;
 import org.pentaho.di.core.row.RowMeta;
@@ -10,6 +10,7 @@ import org.pentaho.di.trans.Trans;
 import org.pentaho.di.trans.TransMeta;
 import org.pentaho.di.trans.step.*;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,7 +24,7 @@ import java.util.concurrent.*;
  * @author Michael Spector
  */
 public class KafkaConsumer extends BaseStep implements StepInterface {
-    public static final String CONSUMER_TIMEOUT_KEY = "consumer.timeout.ms";
+    public static final String POLL_DURATION_KEY = "poll.duration.ms";
 
     public KafkaConsumer(StepMeta stepMeta, StepDataInterface stepDataInterface, int copyNr, TransMeta transMeta,
                          Trans trans) {
@@ -44,24 +45,27 @@ public class KafkaConsumer extends BaseStep implements StepInterface {
         if (meta.isStopOnEmptyTopic()) {
 
             // If there isn't already a provided value, set a default of 1s
-            if (!substProperties.containsKey(CONSUMER_TIMEOUT_KEY)) {
-                substProperties.put(CONSUMER_TIMEOUT_KEY, "1000");
+            if (!substProperties.containsKey(POLL_DURATION_KEY)) {
+                substProperties.put(POLL_DURATION_KEY, "1000");
             }
         } else {
-            if (substProperties.containsKey(CONSUMER_TIMEOUT_KEY)) {
+            if (substProperties.containsKey(POLL_DURATION_KEY)) {
                 logError(Messages.getString("KafkaConsumer.WarnConsumerTimeout"));
             }
         }
-        ConsumerConfig consumerConfig = new ConsumerConfig(substProperties);
 
-        logBasic(Messages.getString("KafkaConsumer.CreateKafkaConsumer.Message", consumerConfig.zkConnect()));
-        data.consumer = Consumer.createJavaConsumerConnector(consumerConfig);
-        Map<String, Integer> topicCountMap = new HashMap<String, Integer>();
+        if (!substProperties.containsKey(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG)) {
+            substProperties.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
+        }
+        if (!substProperties.containsKey(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG)) {
+            substProperties.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
+        }
+
+        data.consumer = new KafkaConsumer<byte[], byte[]>(substProperties);
         String topic = environmentSubstitute(meta.getTopic());
-        topicCountMap.put(topic, 1);
-        Map<String, List<KafkaStream<byte[], byte[]>>> streamsMap = data.consumer.createMessageStreams(topicCountMap);
-        logDebug("Received streams map: " + streamsMap);
-        data.streamIterator = streamsMap.get(topic).get(0).iterator();
+        data.consumer.subscribe(Arrays.asList(topic));
+
+        logBasic(Messages.getString("KafkaConsumer.CreateKafkaConsumer.Message", substProperties.getProperty("bootstrap.servers")));
 
         return true;
     }
@@ -69,7 +73,7 @@ public class KafkaConsumer extends BaseStep implements StepInterface {
     public void dispose(StepMetaInterface smi, StepDataInterface sdi) {
         KafkaConsumerData data = (KafkaConsumerData) sdi;
         if (data.consumer != null) {
-            data.consumer.shutdown();
+            data.consumer.close();
 
         }
         super.dispose(smi, sdi);
@@ -179,7 +183,9 @@ public class KafkaConsumer extends BaseStep implements StepInterface {
     public void stopRunning(StepMetaInterface smi, StepDataInterface sdi) throws KettleException {
 
         KafkaConsumerData data = (KafkaConsumerData) sdi;
-        data.consumer.shutdown();
+        if (data.consumer != null) {
+            data.consumer.wakeup();
+        }
         data.canceled = true;
 
         super.stopRunning(smi, sdi);

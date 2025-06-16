@@ -1,7 +1,6 @@
 package org.pentaho.di.trans.kafka.consumer;
 
-import kafka.consumer.ConsumerIterator;
-import kafka.javaapi.consumer.ConsumerConnector;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.pentaho.di.core.row.RowMetaInterface;
 import org.pentaho.di.trans.step.BaseStepData;
 import org.pentaho.di.trans.step.StepDataInterface;
@@ -13,8 +12,7 @@ import org.pentaho.di.trans.step.StepDataInterface;
  */
 public class KafkaConsumerData extends BaseStepData implements StepDataInterface {
 
-    ConsumerConnector consumer;
-    ConsumerIterator<byte[], byte[]> streamIterator;
+    KafkaConsumer<byte[], byte[]> consumer;
     RowMetaInterface outputRowMeta;
     RowMetaInterface inputRowMeta;
     boolean canceled;
