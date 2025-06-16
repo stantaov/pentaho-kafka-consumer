@@ -61,7 +61,7 @@ public class KafkaConsumer extends BaseStep implements StepInterface {
             substProperties.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
         }
 
-        data.consumer = new KafkaConsumer<byte[], byte[]>(substProperties);
+        data.consumer = new org.apache.kafka.clients.consumer.KafkaConsumer<byte[], byte[]>(substProperties);
         String topic = environmentSubstitute(meta.getTopic());
         data.consumer.subscribe(Arrays.asList(topic));
 
