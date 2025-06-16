@@ -1,6 +1,6 @@
 package org.pentaho.di.trans.kafka.consumer;
 
-import org.apache.kafka.clients.consumer.KafkaConsumer;
+// import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.pentaho.di.core.exception.KettleException;
