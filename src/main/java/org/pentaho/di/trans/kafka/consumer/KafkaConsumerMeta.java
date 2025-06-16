@@ -1,6 +1,6 @@
 package org.pentaho.di.trans.kafka.consumer;
 
-import kafka.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.pentaho.di.core.CheckResult;
 import org.pentaho.di.core.CheckResultInterface;
 import org.pentaho.di.core.Const;
