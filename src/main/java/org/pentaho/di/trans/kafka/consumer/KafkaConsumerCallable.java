@@ -44,7 +44,7 @@ public abstract class KafkaConsumerCallable implements Callable<Object> {
                 step.logDebug("Collecting unlimited messages");
             }
             while (!data.canceled && (limit <= 0 || data.processed < limit)) {
-                ConsumerRecords<byte[], byte[]> records = data.consumer.poll(Duration.ofMillis(1000));
+                ConsumerRecords<?, ?> records = data.consumer.poll(Duration.ofMillis(1000));
                 if (records.isEmpty()) {
                     step.logDebug("Received an empty poll after " + data.processed + " messages");
                     if (meta.isStopOnEmptyTopic()) {
@@ -53,8 +53,10 @@ public abstract class KafkaConsumerCallable implements Callable<Object> {
                         continue;
                     }
                 }
-                for (ConsumerRecord<byte[], byte[]> record : records) {
-                    messageReceived(record.key(), record.value());
+                for (ConsumerRecord<?, ?> record : records) {
+                    byte[] keyBytes = convertToBytes(record.key());
+                    byte[] valueBytes = convertToBytes(record.value());
+                    messageReceived(keyBytes, valueBytes);
                     ++data.processed;
                     if (limit > 0 && data.processed >= limit) {
                         break;
@@ -79,4 +81,15 @@ public abstract class KafkaConsumerCallable implements Callable<Object> {
         }
         return limit;
     }
+
+    private byte[] convertToBytes(Object obj) {
+        if (obj == null) {
+            return null;
+        }
+        if (obj instanceof byte[]) {
+            return (byte[]) obj;
+        }
+        return obj.toString().getBytes();
+    }
+
 }

@@ -12,7 +12,7 @@ import org.pentaho.di.trans.step.StepDataInterface;
  */
 public class KafkaConsumerData extends BaseStepData implements StepDataInterface {
 
-    org.apache.kafka.clients.consumer.KafkaConsumer<byte[], byte[]> consumer;
+    org.apache.kafka.clients.consumer.KafkaConsumer<?, ?> consumer;
     RowMetaInterface outputRowMeta;
     RowMetaInterface inputRowMeta;
     boolean canceled;
